@@ -8,6 +8,7 @@ from app.utils.exception import ApiError
 from datetime import datetime, timezone
 from bson import ObjectId
 import json
+from app.services.openAI import openAI_call
 
 # --- NEW: Import the embedding service ---
 from app.services.embedding_service import get_embedding
@@ -15,6 +16,26 @@ from app.models.request_model import VectorSearchRequest, RatingRequest
 from app.utils.pagination import get_pagination_params, PaginationParams
 
 router = APIRouter(tags=["Recipes"])
+
+# --- Helper function for recipe generate ---
+async def generate_recipes_with_caching(
+    ingredients_str: str,
+    region: str,
+    dietary_pref: str
+)-> dict :
+    """
+    Call OpenAI with prompt caching for 90% cost reduction on static content.
+    """
+    
+    user_prompt = f"""
+    Region: {region}
+    Dietary Preferences: {dietary_pref}
+    Detected Ingredients: {ingredients_str}
+    
+    Generate 2 recipes following the system instructions.
+    """
+    
+    return openAI_call(user_prompt);
 
 # --- Recipe Generation Endpoint ---
 @router.post("/generate", response_model=List[RecipePublic], status_code=status.HTTP_201_CREATED)
@@ -45,141 +66,24 @@ async def generate_recipes(
         
         dietary_pref = dietary_preferences if dietary_preferences else "None"
         
-        # Prompt construction
-        prompt = f"""
-        You are an expert culinary AI assistant. Your task is to generate practical and appealing recipe suggestions based on a list of ingredients provided by a user.
-
-        ### CONTEXT
-        - User's primary region: "{region}"
-        - Detected ingredients: "{ingredients_str}"
-        - User's dietary preferences: "{dietary_pref}"
-
-        ### TASK
-        Generate 2 distinct recipe suggestions that prominently feature the detected ingredients.
-        1.  Recipe 1 (Regional Focus): Create a recipe that is popular in or inspired by the user's region.
-        2.  Recipe 2 (Creative/Alternative): Create a creative or widely-known recipe that is a great way to use the ingredients, even if it's not specific to the user's region.
-
-        ### RULES
-        - You may add up to 3 common pantry staples (e.g., oil, salt, pepper, water, common spices like turmeric or chili powder) if they are essential for the recipe. List them in the ingredients.
-        - Prioritize using the detected ingredients.
-        - The instructions should be a clear, numbered list of steps.
-
-        ### OUTPUT FORMAT
-        Your entire response MUST be a single, valid JSON object. Do not include any text or explanations outside of the JSON. The structure must follow this exact schema:
-
-        Return valid JSON:
-        {{
-          "recipe_suggestions": [
-            {{
-              "title": "...",
-              "ingredients": [
-                                {{"name": "...", "quantity": "..."}},
-	                            {{"name": "...", "quantity": "..."}}
-                             ],
-              "instructions": ["Step 1...", "Step 2..."],
-              "region": "{region}",
-              "dietary_preferences": "{dietary_pref}",
-              "prep_time_minutes": int,
-              "cook_time_minutes": int,
-              "servings": int,
-              "difficulty": "Easy/Hard/Medium",
-              "tags": ["tag1", "tag2"],
-              "nutritional_info": {{}}
-            }}
-          ]
-        }}
-        """
         
         # TODO: LLM response (OpenAI or other)
+        # response = openAI_call(prompt)
+        response = await generate_recipes_with_caching(
+            ingredients_str=ingredients_str,
+            region=region,
+            dietary_pref=dietary_pref
+        )
+        print("Response: ", response)
         
-        
-        # Suppose this is my response from LLM
-        response = {
-            "recipe_suggestions": [
-                {
-                    "title": "Aloo Palak Masala with Capsicum",
-                    "ingredients": [
-                        {"name": "Paalak (Spinach)", "quantity": "200g, chopped"},
-                        {"name": "Potato", "quantity": "2 medium, diced"},
-                        {"name": "Capsicum", "quantity": "1 medium, chopped"},
-                        {"name": "Tomato", "quantity": "2 medium, pureed"},
-                        {"name": "Oil", "quantity": "2 tbsp"},
-                        {"name": "Salt", "quantity": "to taste"},
-                        {"name": "Turmeric powder", "quantity": "1/2 tsp"},
-                        {"name": "Red chili powder", "quantity": "1/2 tsp"},
-                    ],
-                    "instructions": [
-                        "1. Heat oil in a pan and add diced potatoes. Fry lightly until golden.",
-                        "2. Add chopped capsicum and sauté for 2 minutes.",
-                        "3. Stir in the tomato puree, turmeric, red chili powder, and salt. Cook until oil separates.",
-                        "4. Add chopped spinach and mix well. Cover and cook on low heat until spinach is soft and potatoes are cooked.",
-                        "5. Serve hot with roti or rice.",
-                    ],
-                    "region": "Delhi/North Indian",
-                    "dietary_preferences": "Vegetarian",
-                    "prep_time_minutes": 15,
-                    "cook_time_minutes": 25,
-                    "servings": 3,
-                    "difficulty": "Easy",
-                    "tags": ["North Indian", "Sabzi", "Vegetarian", "Spinach", "Potato"],
-                    "nutritional_info": {
-                        "calories": "180 kcal per serving",
-                        "protein": "6g",
-                        "carbohydrates": "24g",
-                        "fat": "7g",
-                        "fiber": "5g",
-                    },
-                },
-                {
-                    "title": "Vegetarian Stuffed Capsicum with Spinach-Potato Filling",
-                    "ingredients": [
-                        {"name": "Capsicum", "quantity": "3 large, whole"},
-                        {"name": "Potato", "quantity": "2 medium, boiled and mashed"},
-                        {"name": "Paalak (Spinach)", "quantity": "100g, finely chopped"},
-                        {"name": "Tomato", "quantity": "1 medium, finely chopped"},
-                        {"name": "Oil", "quantity": "2 tbsp"},
-                        {"name": "Salt", "quantity": "to taste"},
-                        {"name": "Black pepper", "quantity": "1/2 tsp"},
-                    ],
-                    "instructions": [
-                        "1. Cut the tops off the capsicums and remove seeds inside.",
-                        "2. Heat oil in a pan, add chopped spinach and tomato, sauté until soft.",
-                        "3. Add mashed potatoes, salt, and black pepper. Mix well to form a filling.",
-                        "4. Stuff the capsicums with the prepared mixture.",
-                        "5. Place stuffed capsicums in a greased pan, cover, and cook on low flame for 15–20 minutes until tender.",
-                        "6. Serve warm with paratha or rice.",
-                    ],
-                    "region": "Fusion/Creative",
-                    "dietary_preferences": "Vegetarian",
-                    "prep_time_minutes": 20,
-                    "cook_time_minutes": 25,
-                    "servings": 3,
-                    "difficulty": "Medium",
-                    "tags": [
-                        "Stuffed Vegetable",
-                        "Creative",
-                        "Vegetarian",
-                        "Spinach",
-                        "Potato",
-                    ],
-                    "nutritional_info": {
-                        "calories": "210 kcal per serving",
-                        "protein": "5g",
-                        "carbohydrates": "28g",
-                        "fat": "8g",
-                        "fiber": "6g",
-                    },
-                },
-            ]
-        }
-
         # Validate and parse response
-        # try:
-        #     recipe_data = json.loads(response)
-        # except json.JSONDecodeError:
-        #     raise ApiError(status.HTTP_500_INTERNAL_SERVER_ERROR, "Failed to parse recipe generation response.from LLM")
+        try:
+            recipe_data = json.loads(response)
+        except json.JSONDecodeError as e:
+            print("Invalid JSON output from model:", response)
+            raise ApiError(status.HTTP_500_INTERNAL_SERVER_ERROR, "Failed to parse recipe generation response.from LLM")
         
-        recipe_data = response  # Using mock response for now
+        # recipe_data = response  # Using mock response for now
         
         recipe_suggestions = recipe_data.get("recipe_suggestions", [])
         if not recipe_suggestions:
