@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, Depends
-from app.database.connection import get_db
+from app.database.connection import MongoDB
 from app.dependencies.auth import AuthenticatedUser
 from app.models.userModel import UserPublic, PyObjectId
 from app.models.recipe_model import RecipePublic
@@ -31,7 +31,7 @@ async def add_favorite_recipe(
     """
     Adds a recipe to the current user's favorites list.
     """
-    db = get_db()
+    db = MongoDB.get_db()
     users_collection = db["users"]
     if not ObjectId.is_valid(recipe_id):
         raise ApiError(400, "Invalid recipe ID format.")
@@ -56,7 +56,7 @@ async def remove_favorite_recipe(
     """
     Removes a recipe from the current user's favorites list.
     """
-    db = get_db()
+    db = MongoDB.get_db()
     users_collection = db["users"]
     
     if not ObjectId.is_valid(recipe_id):
@@ -81,7 +81,7 @@ async def get_my_recipes(
     """
     Retrieve all recipes created by the authenticated user.
     """
-    recipe_db = get_db()["recipes"]
+    recipe_db = MongoDB.get_db()["recipes"]
     print("Current User ID:", current_user.id)
     owner = recipe_db.find_one({"owner": ObjectId(current_user.id)})
     print("Recipe DB owner:", owner)
@@ -103,8 +103,8 @@ async def get_favorite_recipes(
     """
     Retrieves the full recipe details for the user's favorite recipes.
     """
-    user_db = get_db()["users"]
-    recipe_db = get_db()["recipes"]
+    user_db = MongoDB.get_db()["users"]
+    recipe_db = MongoDB.get_db()["recipes"]
     try:
         user = await user_db.find_one({"_id": ObjectId(current_user.id)})
         

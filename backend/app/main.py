@@ -1,16 +1,17 @@
 import uvicorn
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.database.connection import connect_db, close_db_connection, get_db
+# from app.database.connection import connect_db, close_db_connection, get_db
+from app.database.connection import MongoDB
 from app.api import auth, user, recipe
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting up...")
-    await connect_db()  # Connect and check the database
+    await MongoDB.connect_db()  # Connect and check the database
     
     # You can get the db instance here if needed for startup tasks like creating indexes
-    db = get_db()
+    db = MongoDB.get_db()
     # TODO: Create indexes on startup for better performance
     try:
         await db["users"].create_index("email", unique=True)
@@ -21,7 +22,7 @@ async def lifespan(app: FastAPI):
         print(f"Error creating indexes: {e}")
     
     yield
-    close_db_connection() # Close the connection when the app shuts down
+    MongoDB.close_db_connection() # Close the connection when the app shuts down
 
 app = FastAPI(
     title="DishGuru API",

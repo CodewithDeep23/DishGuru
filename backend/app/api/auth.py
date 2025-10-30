@@ -3,7 +3,7 @@ from fastapi import APIRouter, status, Response, Request
 from app.models.userModel import UserCreate, UserPublic, TokenResponse
 from app.utils.hashPass import hash_password, is_password_correct
 from app.utils.exception import ApiError
-from app.database.connection import get_db
+from app.database.connection import MongoDB
 from app.utils.jwt import create_access_token, create_refresh_token, decode_token, REFRESH_TOKEN_SECRET
 from datetime import datetime, timezone
 from app.dependencies.auth import AuthenticatedUser
@@ -14,7 +14,7 @@ router = APIRouter(tags=["Auth"])
 
 @router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: UserCreate):
-    db = get_db()
+    db = MongoDB.get_db()
     users_collection = db["users"]
     
     # Check uniqueness
@@ -55,7 +55,7 @@ async def login_user(
     password: str, 
     response: Response # Used to set HttpOnly cookies
 ):
-    db = get_db()
+    db = MongoDB.get_db()
     users_collection = db["users"]
     
     # 1. Find user (select password to verify)
@@ -115,7 +115,7 @@ async def logout_user(
     """
     Logs out the user by clearing the authentication cookies.
     """
-    db = get_db()
+    db = MongoDB.get_db()
     users_collection = db["users"]
     
     # 2. Revoke Refresh Token (Essential Security Step)
@@ -177,7 +177,7 @@ async def refresh_token(request: Request, response: Response):
     if not user_id:
         raise ApiError(status.HTTP_401_UNAUTHORIZED, "Invalid refresh token: No subject found.")
     
-    db = get_db()
+    db = MongoDB.get_db()
     user = await db["users"].find_one({"_id": ObjectId(user_id)})
 
     if not user or user.get("refreshToken") != incomingRefreshToken:

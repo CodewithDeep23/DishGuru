@@ -1,7 +1,7 @@
 from fastapi import APIRouter, status, Depends
 from typing import List, Dict, Optional
 from app.dependencies.auth import AuthenticatedUser
-from app.database.connection import get_db
+from app.database.connection import MongoDB
 from app.models.userModel import UserPublic, PyObjectId
 from app.models.recipe_model import RecipePublic, RecipeInDB, Ingredient, RecipeBase
 from app.utils.exception import ApiError
@@ -48,7 +48,7 @@ async def generate_recipes(
     """
     Generate recipes using LLM based on scanned ingredients and user context.
     """
-    recipe_db = get_db()["recipes"]
+    recipe_db = MongoDB.get_db()["recipes"]
     # print("Ingredients", ingredients)
     ingredients_str = ", ".join([i.name for i in ingredients])
     # print(ingredients_str)
@@ -145,7 +145,7 @@ async def generate_recipes(
 # async def vector_search_recipe(
 #     request: VectorSearchRequest
 # ):
-#     recipe_db = get_db()["recipes"]
+#     recipe_db = MongoDB.get_db()["recipes"]
     
 #     """
 #     Performs a semantic vector search for recipes based on a natural language query.
@@ -188,7 +188,7 @@ async def filtered_search_recipes(
     """
     Searches for recipes using filters for title, region, and difficulty. Supports pagination.
     """
-    recipe_db = get_db()["recipes"]
+    recipe_db = MongoDB.get_db()["recipes"]
     filter_query = {}
     
     if title:
@@ -213,7 +213,7 @@ async def get_recipe_by_id(recipe_id: str):
     """
     Retrieves a single recipe by its unique ID.
     """
-    recipe_db = get_db()["recipes"]
+    recipe_db = MongoDB.get_db()["recipes"]
     try:
         if not ObjectId.is_valid(recipe_id):
             raise ApiError(status.HTTP_400_BAD_REQUEST, "Invalid recipe ID format.")
@@ -241,7 +241,7 @@ async def rate_recipe(
     Allows an authenticated user to rate a recipe.
     Submits a rating for a recipe. The average and count are updated atomically.
     """
-    recipe_db = get_db()["recipes"] 
+    recipe_db = MongoDB.get_db()["recipes"] 
     try:
         if not ObjectId.is_valid(recipe_id):
             raise ApiError(status.HTTP_400_BAD_REQUEST, "Invalid recipe ID format.")

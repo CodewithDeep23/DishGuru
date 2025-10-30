@@ -3,14 +3,14 @@ from fastapi import Header, Depends, status, Request
 from typing import Annotated, Dict, Optional
 from app.utils.exception import ApiError
 from app.utils.jwt import decode_token, ACCESS_TOKEN_SECRET
-from app.database.connection import get_db
+from app.database.connection import MongoDB
 from app.models.userModel import UserPublic
 from bson import ObjectId
 
 # Utility to fetch user (should be in a repo layer for production)
 async def get_user_by_id(user_id: str) -> Optional[UserPublic]:
     """Fetches a user by their ID from MongoDB and returns a UserPublic model."""
-    db = get_db()
+    db = MongoDB.get_db()
     try:
         if not ObjectId.is_valid(user_id):
             return None
