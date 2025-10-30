@@ -1,0 +1,71 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+pip-wheel-metadata/
+
+# --- Virtual Environments ---
+venv/
+env/
+ENV/
+.venv/
+.pyenv/
+*.env
+
+# --- Environment & Secrets ---
+.env
+.env.*
+*.env.local
+*.secret
+config.yaml
+config.json
+
+# --- FastAPI / Uvicorn logs ---
+*.log
+logs/
+uvicorn.log
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# --- OS-specific ---
+.DS_Store
+Thumbs.db
+
+# --- pytest / coverage ---
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+
+# --- Jupyter / Notebooks ---
+.ipynb_checkpoints/
+
+# --- Migrations / Database ---
+*.db
+*.sqlite3
+alembic/versions/__pycache__/
+alembic.ini
+
+# --- Docker ---
+*.pid
+*.tar
+*.gz
+docker-compose.override.yml
+
+# --- Others ---
+__pypackages__/
+site/
