@@ -36,6 +36,15 @@ def decode_token(token: str, secret_key: str) -> Dict | None:
     """Decodes a JWT token. Returns payload or None if invalid."""
     try:
         payload = jwt.decode(token, secret_key, algorithms=[JWT_ALGORITHM])
+        exp = payload.get("exp")
+        if exp and datetime.now(timezone.utc).timestamp() > exp:
+            print("⚠️ Token has expired.")
+            return None
+
         return payload
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+    except jwt.ExpiredSignatureError:
+        print("⚠️ Token expired (jwt.ExpiredSignatureError).")
+        return None
+    except jwt.InvalidTokenError:
+        print("❌ Invalid token structure or signature.")
         return None
