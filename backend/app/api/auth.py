@@ -1,12 +1,14 @@
 # app/api/v1/auth.py
-from fastapi import APIRouter, status, Response, Header
+from fastapi import APIRouter, status, Response, Request
 from app.models.userModel import UserCreate, UserPublic, TokenResponse
 from app.utils.hashPass import hash_password, is_password_correct
 from app.utils.exception import ApiError
 from app.database.connection import get_db
-from app.utils.jwt import create_access_token, create_refresh_token
+from app.utils.jwt import create_access_token, create_refresh_token, decode_token, REFRESH_TOKEN_SECRET
 from datetime import datetime, timezone
 from app.dependencies.auth import AuthenticatedUser
+from typing import Dict, Optional
+from bson import ObjectId
 
 router = APIRouter(tags=["Auth"])
 
@@ -84,7 +86,7 @@ async def login_user(
         "httponly": True,
         "secure": True, # REQUIRE HTTPS in production
         "samesite": "Lax",
-        "max_age": 7 * 24 * 60 * 60 # 7 days
+        "max_age": 7 * 24 * 60 * 60
     }
     
     response.set_cookie(key="accessToken", value=access_token, **cookie_params)
@@ -144,4 +146,66 @@ async def logout_user(
     return {
         "success": True,
         "message": "Logged out successfully."
+    }
+
+
+@router.post("/refresh-token", status_code=status.HTTP_200_OK)
+async def refresh_token(request: Request, response: Response):
+    """
+    Endpoint to refresh the access token using a valid refresh token.
+    """
+
+    incomingRefreshToken = request.cookies.get("refreshToken")
+
+    # If not in cookie, check Authorization header
+    if not incomingRefreshToken:
+        authorization = request.headers.get("Authorization")
+        if authorization and authorization.lower().startswith("bearer "):
+            # Split the string to get the token part after "Bearer "
+            incomingRefreshToken = authorization.split(" ", 1)[1]
+
+    if not incomingRefreshToken:
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, "Refresh token not provided.")
+    
+    # 1. Decode and validate the refresh token
+    payload: Optional[Dict] = decode_token(incomingRefreshToken, REFRESH_TOKEN_SECRET)
+
+    if payload is None:
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, "Invalid or expired refresh token.")
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, "Invalid refresh token: No subject found.")
+    
+    db = get_db()
+    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+
+    if not user or user.get("refreshToken") != incomingRefreshToken:
+        raise ApiError(status.HTTP_401_UNAUTHORIZED, "Refresh token is not recognized.")
+    
+    # 3. Generate tokens
+    access_token = create_access_token(subject=user_id)
+    refresh_token = create_refresh_token(subject=user_id)
+
+    # 4. Save refresh token (for revocation/renewal)
+    now = datetime.now(timezone.utc)
+    await db['users'].update_one(
+        {"_id": user["_id"]},
+        {"$set": {"refreshToken": refresh_token, "updatedAt": now}}
+    )
+    
+    # 5. Set HttpOnly cookies (Best Practice for browser clients)
+    cookie_params = {
+        "httponly": True,
+        "secure": True, # REQUIRE HTTPS in production
+        "samesite": "Lax",
+        "max_age": 7 * 24 * 60 * 60
+    }
+    
+    response.set_cookie(key="accessToken", value=access_token, **cookie_params)
+    response.set_cookie(key="refreshToken", value=refresh_token, **cookie_params)
+
+    return {
+        "status": "success",
+        "message": "Access token refreshed successfully.",
     }
