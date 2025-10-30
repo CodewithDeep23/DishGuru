@@ -11,7 +11,7 @@ import json
 from app.services.openAI import openAI_call
 
 # --- NEW: Import the embedding service ---
-from app.services.embedding_service import get_embedding
+# from app.services.embedding_service import get_embedding
 from app.models.request_model import VectorSearchRequest, RatingRequest
 from app.utils.pagination import get_pagination_params, PaginationParams
 
@@ -142,39 +142,39 @@ async def generate_recipes(
 
 # --- Search Vector Embedding
 @router.post("/search/vector", response_model=List[RecipePublic])
-async def vector_search_recipe(
-    request: VectorSearchRequest
-):
-    recipe_db = get_db()["recipes"]
+# async def vector_search_recipe(
+#     request: VectorSearchRequest
+# ):
+#     recipe_db = get_db()["recipes"]
     
-    """
-    Performs a semantic vector search for recipes based on a natural language query.
-    """
-    try:
-        query_embedding = await get_embedding(request.query)
-    except Exception as e:
-        raise ApiError(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Could not process search query: {e}")
+#     """
+#     Performs a semantic vector search for recipes based on a natural language query.
+#     """
+#     try:
+#         query_embedding = await get_embedding(request.query)
+#     except Exception as e:
+#         raise ApiError(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Could not process search query: {e}")
     
-    pipeline = [
-        {
-            "$vectorSearch": {
-                "index": "recipe_vector_index", # The name you gave your index in Atlas
-                "path": "vector_embedding",
-                "queryVector": query_embedding,
-                "numCandidates": 100,
-                "limit": request.top_k
-            }
-        },
-        # You can optionally project the search score if you want to use it
-        # {
-        #     "$project": {
-        #         "score": {"$meta": "vectorSearchScore"},
-        #         "document": "$$ROOT"
-        #     }
-        # }
-    ]
-    results = await recipe_db.aggregate(pipeline).to_list(length=request.top_k)
-    return [RecipePublic.model_validate(res) for res in results]
+#     pipeline = [
+#         {
+#             "$vectorSearch": {
+#                 "index": "recipe_vector_index", # The name you gave your index in Atlas
+#                 "path": "vector_embedding",
+#                 "queryVector": query_embedding,
+#                 "numCandidates": 100,
+#                 "limit": request.top_k
+#             }
+#         },
+#         # You can optionally project the search score if you want to use it
+#         # {
+#         #     "$project": {
+#         #         "score": {"$meta": "vectorSearchScore"},
+#         #         "document": "$$ROOT"
+#         #     }
+#         # }
+#     ]
+#     results = await recipe_db.aggregate(pipeline).to_list(length=request.top_k)
+#     return [RecipePublic.model_validate(res) for res in results]
 
 
 # --- Filter Search ---
